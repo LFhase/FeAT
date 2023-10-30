@@ -1,6 +1,6 @@
 <h1 align="center">FeAT: Feature Augmented Training</h1>
 <p align="center">
-    <a href="https://arxiv.org/abs/2206.07766"><img src="https://img.shields.io/badge/arXiv-2206.07766-b31b1b.svg" alt="Paper"></a>
+    <a href="https://arxiv.org/abs/2304.11327"><img src="https://img.shields.io/badge/arXiv-2304.11327-b31b1b.svg" alt="Paper"></a>
     <a href="https://github.com/LFhase/FeAT"><img src="https://img.shields.io/badge/-Github-grey?logo=github" alt="Github"></a>
     <!-- <a href=""><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Colab"></a> -->
     <a href="https://openreview.net/forum?id=eozEoAtjG8"> <img alt="License" src="https://img.shields.io/static/v1?label=Pub&message=NeurIPS%2723&color=blue"> </a>
@@ -17,7 +17,9 @@ Updates:
 <!-- - [x] Results are updated to [Wilds leaderboard](https://wilds.stanford.edu/leaderboard/). Note there are some slight differences due to the [evaluation](./WILDS/README.md).
 - [x] Camera ready version of the paper [link](https://openreview.net/forum?id=esFxSb_0pSL)!
 - [x] PAIR is accepted as an ***oral presentation*** by [ICLR DG](https://domaingen.github.io/) workshop! -->
-- [] Detailed running instruction will be released soon!
+
+- [x] Camera-ready version of the paper is updated [link](https://arxiv.org/abs/2304.11327)!
+- [ ] Detailed running instructions will be released soon!
 
 ## What feature does ERM learn for generalization?
 Empirical risk minimization (ERM) is the *de facto* objective adopted in Machine Learning and obtains impressive generalization performance. Nevertheless, ERM is shown to be prone to spurious correlations, and is suspected to learn predictive but **<ins>spurious</ins>** features for minimizing the empirical risk.
