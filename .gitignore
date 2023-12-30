@@ -156,3 +156,5 @@ dmypy.json
 **/*.pkl
 **/*.log
 **/dataset_files
+
+**/.DS_Store
