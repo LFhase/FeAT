@@ -89,10 +89,10 @@ def get_args():
         "--use_new_embeddings", action='store_true', help="Donot use old embeddings")
     parser.add_argument('-ms',
         "--model_selection", type=str, default="wga", help="which way to select best DFR models")
-    parser.add_argument('-fat',
-        "--eval_fat", action='store_true', help="Whether evaluating FAT trained model")
+    parser.add_argument('-feat',
+        "--eval_feat", action='store_true', help="Whether evaluating feat trained model")
     parser.add_argument('-rfc',
-        "--eval_rfc", action='store_true', help="Whether evaluating FAT trained model")
+        "--eval_rfc", action='store_true', help="Whether evaluating feat trained model")
     args = parser.parse_args()
     args.num_minority_groups_remove = 0
     args.reweight_groups = False
@@ -314,7 +314,7 @@ def main(args):
             model.load_state_dict(ckpt_dict)
         except:
             print("Loading one-output Checkpoint")
-            if args.eval_fat:
+            if args.eval_feat:
                 w = ckpt_dict["classifier.weight"]
                 b = ckpt_dict["classifier.bias"]
                 w_ = torch.zeros(w.size())
@@ -359,7 +359,7 @@ def main(args):
             name: utils.get_results(accs, get_ys_func) for name, accs in base_model_results.items()}
         print(base_model_results)
         print()
-    if args.eval_fat or args.eval_rfc:
+    if args.eval_feat or args.eval_rfc:
         if "civil" in args.dataset.lower():
             model.model.classifier = torch.nn.Identity()
         model.classifier = torch.nn.Identity()

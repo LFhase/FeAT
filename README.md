@@ -5,8 +5,8 @@
     <!-- <a href=""><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Colab"></a> -->
     <a href="https://openreview.net/forum?id=eozEoAtjG8"> <img alt="License" src="https://img.shields.io/static/v1?label=Pub&message=NeurIPS%2723&color=blue"> </a>
     <a href="https://github.com/LFhase/PAIR/blob/main/LICENSE"> <img alt="License" src="https://img.shields.io/github/license/LFhase/PAIR?color=blue"> </a>
-    <!-- <a href="https://neurips.cc/virtual/2022/poster/54643"> <img src="https://img.shields.io/badge/Video-grey?logo=Kuaishou&logoColor=white" alt="Video"></a> -->
-    <!-- <a href="https://lfhase.win/files/slides/PAIR.pdf"> <img src="https://img.shields.io/badge/Slides-grey?&logo=MicrosoftPowerPoint&logoColor=white" alt="Slides"></a> -->
+    <a href="https://nips.cc/virtual/2023/poster/70939"> <img src="https://img.shields.io/badge/Video-grey?logo=Kuaishou&logoColor=white" alt="Video"></a>
+    <a href="https://lfhase.win/files/slides/FeAT.pdf"> <img src="https://img.shields.io/badge/Slides-grey?&logo=MicrosoftPowerPoint&logoColor=white" alt="Slides"></a>
    <!--  <a href="https://icml.cc/media/PosterPDFs/ICML%202022/a8acc28734d4fe90ea24353d901ae678.png"> <img src="https://img.shields.io/badge/Poster-grey?logo=airplayvideo&logoColor=white" alt="Poster"></a> -->
 </p>
 
@@ -14,12 +14,8 @@ This repo contains the sample code for reproducing the results of our NeurIPS 20
 
 Updates:
 
-<!-- - [x] Results are updated to [Wilds leaderboard](https://wilds.stanford.edu/leaderboard/). Note there are some slight differences due to the [evaluation](./WILDS/README.md).
-- [x] Camera ready version of the paper [link](https://openreview.net/forum?id=esFxSb_0pSL)!
-- [x] PAIR is accepted as an ***oral presentation*** by [ICLR DG](https://domaingen.github.io/) workshop! -->
-
 - [x] Camera-ready version of the paper is updated [link](https://arxiv.org/abs/2304.11327)!
-- [ ] Detailed running instructions will be released soon!
+- [x] Detailed running instructions, slides and the recording have been released!
 
 ## What feature does ERM learn for generalization?
 Empirical risk minimization (ERM) is the *de facto* objective adopted in Machine Learning and obtains impressive generalization performance. Nevertheless, ERM is shown to be prone to spurious correlations, and is suspected to learn predictive but **<ins>spurious</ins>** features for minimizing the empirical risk.
@@ -57,19 +53,62 @@ torch==1.9.0
 The corresponding code is in the folder [ColoredMNIST](./ColoredMNIST).
 The code is modified from [RFC](https://github.com/TjuJianyu/RFC/).
 
-<!-- To reproduce results of FeAT, simply run the following commands under the directory:
+To reproduce results of FeAT, simply run the following commands under the directory:
+
+Step 1. Pretraining the featurizer with FeAT
+
 
 For the original ColoredMNIST data (CMNIST-25):
 
 ```
-python run_exp.py  --methods pair  --verbose True --penalty_anneal_iters 150 --dataset coloredmnist025 --n_restarts 10 --lr 0.1 --opt 'pair' 
+rounds=2
+ifeat_resdir=coloredmnist025_ifeat_r${rounds}
+
+python run_exp.py --verbose True --steps 0 --freeze_featurizer True --dataset coloredmnist025 --eval_steps 1  --methods ifeat --rounds ${rounds} --save_dir ${ifeat_resdir}
 ```
 
 For the modified ColoredMNIST data (CMNIST-01):
 
 ```
-python run_exp.py  --methods pair  --verbose True --penalty_anneal_iters 150 --dataset coloredmnist01 --n_restarts 10 --lr 0.01 --opt 'pair'
-``` -->
+rounds=3
+ifeat_resdir=coloredmnist01_ifeat_r${rounds}
+
+python run_exp.py --verbose True --steps 0 --freeze_featurizer True --dataset coloredmnist01 --eval_steps 1  --methods ifeat --rounds ${rounds} --save_dir ${ifeat_resdir}
+``` 
+
+The trained weights will be saved to `ifeat_resdir` specified before running.
+The second step will load the weights and freeze the featurizer (by default) to train the new classifier.
+
+Step 2. Training a new classifier with various OOD objectives:
+
+```
+
+# for coloredmnist025
+python run_exp.py  --methods irm  --verbose True --freeze_featurizer True --penalty_anneal_iters 0 --dataset coloredmnist025 --n_restarts 10 -p 1e4 --load_model_dir ${ifeat_resdir} -nt --steps 2001
+
+# for coloredmnist01
+python run_exp.py  --methods vrex  --verbose True --freeze_featurizer True --penalty_anneal_iters 0 --dataset coloredmnist01 --n_restarts 10 -p 1e6 --load_model_dir ${ifeat_resdir} -nt --steps 5001
+```
+
+Here `-nt` means we will train a new classifier. One could also use the original classifier for the second step.
+
+Or you could execute the two steps one way together:
+```
+# for coloredmnist025
+python run_exp.py --verbose True --steps 501  -p 1e4 --freeze_featurizer True --dataset coloredmnist025 --eval_steps 1  --methods ifeat --rounds 2 --penalty_anneal_iters 0 --stage2_methods irm
+
+# for coloredmnist01
+python run_exp.py --verbose True --steps 501  -p 1e6 --freeze_featurizer True --dataset coloredmnist01 --eval_steps 1  --methods ifeat --rounds 3 --penalty_anneal_iters 0 --stage2_methods vrex
+```
+where:
+
+- `--steps`: indicates how many steps the OOD training should perform;
+- `-p`: indicates the penalty weights for the OOD objectives;
+- `--methods`: indicates what feature learning algorithms needs to be used;
+- `--rounds`: indicates the maximum number rounds (if applicable) the feature learning algorithm will use;
+- `--penalty_anneal_iters`: indicates the number of pretraining steps with a small OOD penalty before the OOD training. It will be set to 0 by default when using a feature learning algorithm;
+- `--stage2_methods`: indicates what OOD objective will be used in the second stage when perform both steps together;
+
 
 ## WILDS
 
@@ -77,27 +116,51 @@ The corresponding code is in the folder [WILDS](./WILDS).
 The code is modified from [PAIR](https://github.com/LFhase/PAIR) and [spurious-feature-learning](https://github.com/izmailovpavel/spurious_feature_learning).
 
 
-<!-- To run with wilds codes,
+To run with wilds codes,
 for example,
 
+Step 1. Pretraining the featurizer with FeAT:
 ```
-python main.py --need_pretrain --data-dir ./data --dataset civil --algorithm pair -pc 3 --seed 0 -ac 1e-4 -al
+data_dir=#YOUR DIRECTORY FOR WILDS DATA
+exp_dir=#YOUR DIRECTORY FOR EXPERIMENT RECORDS
+dataset=#YOUR DATASET
+
+python feat_run.py --data-dir ${data_dir} --exp-dir ${exp_dir} --dataset ${dataset} -ifeat --epochs 10 -pi ${pretrain_iters} --seed 0 -pr ${pretrain_rounds} -rp ${retain_penalty} --frozen --algorithm ${OOD_algorithm_second_stage} 
+```
+Similarly, the trained model weights will be saved, and are ready to be used to train other OOD algorithms.
+
+Step 2. Training a new classifier with various OOD objectives:
+
+```
+data_dir=#YOUR DIRECTORY FOR WILDS DATA
+exp_dir=#YOUR DIRECTORY FOR EXPERIMENT RECORDS
+dataset=#YOUR DATASET
+
+python feat_run.py --data-dir ${data_dir} --exp-dir ${exp_dir} --dataset ${dataset} -ifeat --epochs 10 -pi ${pretrain_iters} --seed 0 -pr ${pretrain_rounds} -rp ${retain_penalty} --frozen --algorithm ${OOD_algorithm_second_stage}  
 ```
 
-We add additional commands to control `PAIR-o`:
+We add additional commands to control the training:
 
-- `-pc`: specify preferences;
-- `--use_old`: to avoid repeated pretraining of ERM and directly use the pretrained weights;
+- `-pc`: whether to use the pretrained classifier;
+- `-use_old`: use the already trained model weights with the same hyperparameter settings;
 
-To avoid negative loss inputs, we use the following commands to adjust IRMv1 loss values:
+The running scripts fow wilds experiments can be found [here](./WILDS/scripts).
 
-- `-al` and `-ac`: adjust negative irm penalties in pair by multiplying a negative number;
-- `-ai`: adjust negative irm penalties in pair by adding up a sufficient large number;
+Additional Step. Using DFR to evaluate the feature learning quality:
 
-We also provide a accelerated mode by freezing the featurizer by specifying `--frozen`.
-The running scripts fow wilds experiments can be found [here](./WILDS/scripts). -->
+```
+python feat_dfr_run.py --data_dir=${data_path} \
+                    --data_transform=${data_transformation} \
+                    --dataset=${dataset}  --model=${backbone} \
+                    -feat -cheat --seed ${seed}  \
+                    --ckpt_path=${checkpoint_from_step1}
+```
 
+- `-cheat`: use a cheat evaluation protocal;
+- `-feat`: indicates it's the model trained by FeAT;
+- `--predict_spurious`: indicates to evaluate the spurious feature learning;
 
+The running scripts fow DFR evaluation experiments can be found [here](./WILDS/scripts/feat_dfr.sh).
 
 ## Misc
 
@@ -105,11 +168,11 @@ If you find our paper and repo useful, please cite our paper:
 
 ```bibtex
 @inproceedings{
-chen2023FeAT,
-title={Understanding and Improving Feature Learning for Out-of-Distribution Generalization},
-author={Yongqiang Chen and Wei Huang and Kaiwen Zhou and Yatao Bian and Bo Han and James Cheng},
-booktitle={Thirty-seventh Conference on Neural Information Processing Systems},
-year={2023},
-url={https://openreview.net/forum?id=eozEoAtjG8}
+    chen2023understanding,
+    title={Understanding and Improving Feature Learning for Out-of-Distribution Generalization},
+    author={Yongqiang Chen and Wei Huang and Kaiwen Zhou and Yatao Bian and Bo Han and James Cheng},
+    booktitle={Thirty-seventh Conference on Neural Information Processing Systems},
+    year={2023},
+    url={https://openreview.net/forum?id=eozEoAtjG8}
 }
 ```

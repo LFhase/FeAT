@@ -92,12 +92,12 @@ class Subset(Dataset):
         return len(self.indices)
 
 
-def sample_fat_domains(train_loader, N=1, stratified=True):
+def sample_feat_domains(train_loader, N=1, stratified=True):
     """
     Sample N domains available in the train loader.
     """
     Ls = []
-    for tl in train_loader.dataset.fat_batches_left.values():
+    for tl in train_loader.dataset.feat_batches_left.values():
         Ls.append(max(tl, 0)) if stratified else Ls.append(min(tl, 1))
     positions = range(len(Ls))
     indices = []
@@ -131,15 +131,15 @@ def sample_domains(train_loader, N=1, stratified=True):
     return torch.tensor(indices)
 
 
-def save_best_model(model, runPath, agg, args, pretrain=False, fat=False, fat_step=0, ifat=False):
+def save_best_model(model, runPath, agg, args, pretrain=False, feat=False, feat_step=0, ifeat=False):
     # if args.dataset == 'fmow' or agg['val_stat'][-1] > max(agg['val_stat'][:-1]) or pretrain:
-    if agg['val_stat'][-1] > max(agg['val_stat'][:-1]) or pretrain or (agg['val_stat'][-1] > max(agg['val_stat'][fat_step:-1])):
+    if agg['val_stat'][-1] > max(agg['val_stat'][:-1]) or pretrain or (agg['val_stat'][-1] > max(agg['val_stat'][feat_step:-1])):
         if pretrain:
             suffix_name = f"_pi{args.pretrain_iters}"
-        elif fat:
-            suffix_name = f"_fat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}"
-        elif ifat:
-            suffix_name = f"_ifat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}"
+        elif feat:
+            suffix_name = f"_feat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}"
+        elif ifeat:
+            suffix_name = f"_ifeat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}"
         else:
             suffix_name = ""
         print(f"model saved: {runPath}/{'model'+suffix_name}.rar")

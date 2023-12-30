@@ -949,7 +949,7 @@ def syn_train(mlp, topmlp, steps, envs, test_envs, lossf, \
     
     return (train_acc, train_loss, test_worst_acc, test_worst_loss), logs
 
-def ifat_train(mlp, topmlp, steps, envs, test_envs, lossf, \
+def ifeat_train(mlp, topmlp, steps, envs, test_envs, lossf, \
     penalty_anneal_iters, penalty_term_weight, anneal_val, \
     lr,l2_regularizer_weight, freeze_featurizer=False, eval_steps= 5, verbose=True,hparams={}):
 
@@ -1076,5 +1076,5 @@ def ifat_train(mlp, topmlp, steps, envs, test_envs, lossf, \
     lr,l2_regularizer_weight, freeze_featurizer=freeze_featurizer, eval_steps=1, verbose=True,hparams=hparams)
 
 def get_train_func(methods):
-    assert methods in ['rsc', 'vrex', 'iga','sd','irm','clove','fishr','gm','lff','erm','dro','syn','ifat','fat']
+    assert methods in ['rsc', 'vrex', 'iga','sd','irm','clove','fishr','gm','lff','erm','dro','syn','ifeat','feat']
     return eval("%s_train" % methods)

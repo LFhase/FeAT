@@ -107,7 +107,7 @@ def main(flags):
             flags.penalty_anneal_iters, flags.penalty_weight, \
             flags.anneal_val, flags.lr, \
             flags.l2_regularizer_weight, flags.freeze_featurizer, flags.eval_steps, flags.verbose, ]
-        if flags.methods in ['vrex', 'iga','irm','fishr','gm','lff','erm','dro','ifat','fat']:
+        if flags.methods in ['vrex', 'iga','irm','fishr','gm','lff','erm','dro','ifeat','feat']:
             res = train_func(*params)
         elif flags.methods in ['clove']:
             hparams = {'batch_size': flags.batch_size, 'kernel_scale': flags.kernel_scale}
@@ -180,11 +180,11 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', type=bool, default=False)
     parser.add_argument('--n_restarts', type=int, default=10)
     parser.add_argument('--dataset', type=str, default='coloredmnist025')
-    parser.add_argument('--hidden_dim', type=int, default=390)
+    parser.add_argument('--hidden_dim', type=int, default=256)
     parser.add_argument('--n_top_layers', type=int, default=1)
-    parser.add_argument('--l2_regularizer_weight', type=float,default=0.0011)
+    parser.add_argument('--l2_regularizer_weight', type=float,default=0.001)
     
-    parser.add_argument('--lr', type=float, default=0.0005)
+    parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--steps', type=int, default=501)
     parser.add_argument('--lossf', type=str, default='nll')
     parser.add_argument('--penalty_anneal_iters', type=int, default=100)

@@ -52,7 +52,7 @@ class Model(nn.Module):
         # get the loaders
         kwargs = {'num_workers': args.num_workers, 'pin_memory': True, 'drop_last': False} \
             if device.type == "cuda" else {}
-        # kwargs['pin_memory'] = False if args.fat_sampling_align else True
+        # kwargs['pin_memory'] = False if args.feat_sampling_align else True
         train_loaders = DataLoader(train_sets, batch_size=args.batch_size, shuffle=True, **kwargs)
         
         kwargs = {'num_workers': args.num_workers, 'pin_memory': True, 'drop_last': False}

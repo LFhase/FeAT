@@ -45,64 +45,64 @@ class Poverty_Batched_Dataset(Dataset):
         min_domain_size = np.min([len(didx) for didx in self.domain_indices])
         self.training_steps = int(min_domain_size/self.batch_size)+\
                                 (not self.drop_last*(min_domain_size//self.batch_size>0))
-        self.fat_domains = [torch.arange(self.y_array.size(0))] # domain 0
+        self.feat_domains = [torch.arange(self.y_array.size(0))] # domain 0
         self.rfc_labels = [] # domain 0
     
-    def get_fat_batch(self,fat_domain,rfc_label=False):
-        batch_index = self.fat_batch_indices[fat_domain][len(self.fat_batch_indices[fat_domain]) - self.fat_batches_left[fat_domain]]
+    def get_feat_batch(self,feat_domain,rfc_label=False):
+        batch_index = self.feat_batch_indices[feat_domain][len(self.feat_batch_indices[feat_domain]) - self.feat_batches_left[feat_domain]]
         domains = torch.zeros(batch_index.size()).to(batch_index.device)
-        domains += fat_domain
+        domains += feat_domain
         if rfc_label:
-            if len(self.rfc_labels)==len(self.fat_domains):
-                targets = self.rfc_labels[fat_domain][batch_index]
+            if len(self.rfc_labels)==len(self.feat_domains):
+                targets = self.rfc_labels[feat_domain][batch_index]
             else:
-                targets = self.rfc_labels[fat_domain//2][batch_index]
+                targets = self.rfc_labels[feat_domain//2][batch_index]
             return torch.stack([self.transform(self.get_input(i)) for i in batch_index]), \
                targets, domains
         else:
             return torch.stack([self.transform(self.get_input(i)) for i in batch_index]), \
                 self.targets[batch_index], domains
     
-    def reset_fat_batch(self,train_loader_iter=None):
+    def reset_feat_batch(self,train_loader_iter=None):
         self.train_loader_iter = train_loader_iter
-        self.fat_batch_indices, self.fat_batches_left = {}, {}
+        self.feat_batch_indices, self.feat_batches_left = {}, {}
         if self.train_loader_iter is not None:
-            assert len(self.fat_domains)==1
-            self.fat_batches_left[0] = len(self.train_loader_iter)
-            self.fat_batch_indices[0] = torch.arange(len(self.train_loader_iter))
+            assert len(self.feat_domains)==1
+            self.feat_batches_left[0] = len(self.train_loader_iter)
+            self.feat_batch_indices[0] = torch.arange(len(self.train_loader_iter))
         else:
-            for loc, d_idx in enumerate(self.fat_domains):
-                self.fat_batch_indices[loc] = torch.split(d_idx[torch.randperm(len(d_idx))], self.batch_size)
+            for loc, d_idx in enumerate(self.feat_domains):
+                self.feat_batch_indices[loc] = torch.split(d_idx[torch.randperm(len(d_idx))], self.batch_size)
                 # mannually drop last
-                if self.drop_last and len(self.fat_batch_indices[loc][-1])<self.batch_size:
-                    print("Drop last smaller fat batch ",len(self.batch_indices[loc][-1]))
-                    self.fat_batch_indices[loc] = self.fat_batch_indices[loc][:-1]
-                self.fat_batches_left[loc] = len(self.fat_batch_indices[loc])
+                if self.drop_last and len(self.feat_batch_indices[loc][-1])<self.batch_size:
+                    print("Drop last smaller feat batch ",len(self.batch_indices[loc][-1]))
+                    self.feat_batch_indices[loc] = self.feat_batch_indices[loc][:-1]
+                self.feat_batches_left[loc] = len(self.feat_batch_indices[loc])
 
 
-    def extend_fat_domains(self,new_fat_domains):
-        self.fat_domains += new_fat_domains
-    def replace_fat_domains(self,new_fat_domains):
-        if len(self.fat_domains) == 1:
-            self.fat_domains += new_fat_domains
+    def extend_feat_domains(self,new_feat_domains):
+        self.feat_domains += new_feat_domains
+    def replace_feat_domains(self,new_feat_domains):
+        if len(self.feat_domains) == 1:
+            self.feat_domains += new_feat_domains
         else:
-            assert len(self.fat_domains) == 3
-            self.fat_domains[1] = new_fat_domains[0]
-            self.fat_domains[2] = new_fat_domains[1]
+            assert len(self.feat_domains) == 3
+            self.feat_domains[1] = new_feat_domains[0]
+            self.feat_domains[2] = new_feat_domains[1]
     def prepare_rfc_domains(self):
         num_rfc_rounds = len(self.rfc_labels)
-        self.fat_domains = [torch.arange(self.y_array.size(0))]*num_rfc_rounds
+        self.feat_domains = [torch.arange(self.y_array.size(0))]*num_rfc_rounds
 
     def extend_rfc_labels(self,new_rfc_labels):
         # get rid of the place holder domains
-        if len(self.fat_domains)==1:
-            self.fat_domains = []
+        if len(self.feat_domains)==1:
+            self.feat_domains = []
         self.rfc_labels += new_rfc_labels
 
-    def clean_fat_domains(self):
-        self.fat_domains = None
-        self.fat_batch_indices = None
-        self.fat_batches_left = None
+    def clean_feat_domains(self):
+        self.feat_domains = None
+        self.feat_batch_indices = None
+        self.feat_batches_left = None
         self.rfc_labels = None
     def reset_batch(self):
         """Reset batch indices for each domain."""
@@ -177,70 +177,70 @@ class FMoW_Batched_Dataset(Dataset):
         min_domain_size = np.min([len(didx) for didx in self.domain_indices])
         self.training_steps = int(min_domain_size/self.batch_size)+\
                                 (not self.drop_last*(min_domain_size//self.batch_size>0))
-        self.fat_domains = [torch.arange(self.y_array.size(0))] # domain 0
+        self.feat_domains = [torch.arange(self.y_array.size(0))] # domain 0
         self.rfc_labels = [] # domain 0
         self.train_loader_iter = None
 
     
-    def get_fat_batch(self,fat_domain,rfc_label=False):
-        batch_index = self.fat_batch_indices[fat_domain][len(self.fat_batch_indices[fat_domain]) - self.fat_batches_left[fat_domain]]
+    def get_feat_batch(self,feat_domain,rfc_label=False):
+        batch_index = self.feat_batch_indices[feat_domain][len(self.feat_batch_indices[feat_domain]) - self.feat_batches_left[feat_domain]]
         domains = torch.zeros(batch_index.size()).to(batch_index.device)
-        domains += fat_domain
+        domains += feat_domain
         if self.train_loader_iter is not None:
             # which means align sampling:
-            # inputs = self.batched_data[fat_domain][len(self.fat_batch_indices[fat_domain]) - self.fat_batches_left[fat_domain]]
+            # inputs = self.batched_data[feat_domain][len(self.feat_batch_indices[feat_domain]) - self.feat_batches_left[feat_domain]]
             return next(self.train_loader_iter)
         else:
             inputs = torch.stack([self.transform(self.get_input(i)) for i in batch_index])
         if rfc_label:
-            if len(self.rfc_labels)==len(self.fat_domains):
-                targets = self.rfc_labels[fat_domain][batch_index]
+            if len(self.rfc_labels)==len(self.feat_domains):
+                targets = self.rfc_labels[feat_domain][batch_index]
             else:
-                targets = self.rfc_labels[fat_domain//2][batch_index]
+                targets = self.rfc_labels[feat_domain//2][batch_index]
             return inputs, targets, domains
         else:
             return inputs, self.targets[batch_index], domains
     
-    def reset_fat_batch(self,train_loader_iter=None):
+    def reset_feat_batch(self,train_loader_iter=None):
         self.train_loader_iter = train_loader_iter
-        self.fat_batch_indices, self.fat_batches_left = {}, {}
+        self.feat_batch_indices, self.feat_batches_left = {}, {}
         if self.train_loader_iter is not None:
-            assert len(self.fat_domains)==1
-            self.fat_batches_left[0] = len(self.train_loader_iter)
-            self.fat_batch_indices[0] = torch.arange(len(self.train_loader_iter))
+            assert len(self.feat_domains)==1
+            self.feat_batches_left[0] = len(self.train_loader_iter)
+            self.feat_batch_indices[0] = torch.arange(len(self.train_loader_iter))
         else:
-            for loc, d_idx in enumerate(self.fat_domains):
-                self.fat_batch_indices[loc] = torch.split(d_idx[torch.randperm(len(d_idx))], self.batch_size)
+            for loc, d_idx in enumerate(self.feat_domains):
+                self.feat_batch_indices[loc] = torch.split(d_idx[torch.randperm(len(d_idx))], self.batch_size)
                 # mannually drop last
-                if self.drop_last and len(self.fat_batch_indices[loc][-1])<self.batch_size:
-                    print("Drop last smaller fat batch ",len(self.batch_indices[loc][-1]))
-                    self.fat_batch_indices[loc] = self.fat_batch_indices[loc][:-1]
-                self.fat_batches_left[loc] = len(self.fat_batch_indices[loc])
+                if self.drop_last and len(self.feat_batch_indices[loc][-1])<self.batch_size:
+                    print("Drop last smaller feat batch ",len(self.batch_indices[loc][-1]))
+                    self.feat_batch_indices[loc] = self.feat_batch_indices[loc][:-1]
+                self.feat_batches_left[loc] = len(self.feat_batch_indices[loc])
 
 
-    def extend_fat_domains(self,new_fat_domains):
-        self.fat_domains += new_fat_domains
-    def replace_fat_domains(self,new_fat_domains):
-        if len(self.fat_domains) == 1:
-            self.fat_domains += new_fat_domains
+    def extend_feat_domains(self,new_feat_domains):
+        self.feat_domains += new_feat_domains
+    def replace_feat_domains(self,new_feat_domains):
+        if len(self.feat_domains) == 1:
+            self.feat_domains += new_feat_domains
         else:
-            assert len(self.fat_domains) == 3
-            self.fat_domains[1] = new_fat_domains[0]
-            self.fat_domains[2] = new_fat_domains[1]
+            assert len(self.feat_domains) == 3
+            self.feat_domains[1] = new_feat_domains[0]
+            self.feat_domains[2] = new_feat_domains[1]
     def prepare_rfc_domains(self):
         num_rfc_rounds = len(self.rfc_labels)
-        self.fat_domains = [torch.arange(self.y_array.size(0))]*num_rfc_rounds
+        self.feat_domains = [torch.arange(self.y_array.size(0))]*num_rfc_rounds
 
     def extend_rfc_labels(self,new_rfc_labels):
         # get rid of the place holder domains
-        if len(self.fat_domains)==1:
-            self.fat_domains = []
+        if len(self.feat_domains)==1:
+            self.feat_domains = []
         self.rfc_labels += new_rfc_labels
 
-    def clean_fat_domains(self):
-        self.fat_domains = None
-        self.fat_batch_indices = None
-        self.fat_batches_left = None
+    def clean_feat_domains(self):
+        self.feat_domains = None
+        self.feat_batch_indices = None
+        self.feat_batches_left = None
         self.rfc_labels = None
 
     def reset_batch(self):
@@ -328,70 +328,70 @@ class CivilComments_Batched_Dataset(Dataset):
         min_domain_size = np.min([len(didx) for didx in self.domain_indices])
         self.training_steps = int(min_domain_size/self.batch_size)+\
                                 (not self.drop_last*(min_domain_size//self.batch_size>0))
-        self.fat_domains = [torch.arange(self.y_array.size(0))] # domain 0
+        self.feat_domains = [torch.arange(self.y_array.size(0))] # domain 0
         self.rfc_labels = [] # domain 0
         self.train_loader_iter = None
 
     
-    def get_fat_batch(self,fat_domain,rfc_label=False):
-        batch_index = self.fat_batch_indices[fat_domain][len(self.fat_batch_indices[fat_domain]) - self.fat_batches_left[fat_domain]]
+    def get_feat_batch(self,feat_domain,rfc_label=False):
+        batch_index = self.feat_batch_indices[feat_domain][len(self.feat_batch_indices[feat_domain]) - self.feat_batches_left[feat_domain]]
         domains = torch.zeros(batch_index.size()).to(batch_index.device)
-        domains += fat_domain
+        domains += feat_domain
         if self.train_loader_iter is not None:
             # which means align sampling:
-            # inputs = self.batched_data[fat_domain][len(self.fat_batch_indices[fat_domain]) - self.fat_batches_left[fat_domain]]
+            # inputs = self.batched_data[feat_domain][len(self.feat_batch_indices[feat_domain]) - self.feat_batches_left[feat_domain]]
             return next(self.train_loader_iter)
         else:
             inputs = torch.stack([self.transform(self.get_input(i)) for i in batch_index])
         if rfc_label:
-            if len(self.rfc_labels)==len(self.fat_domains):
-                targets = self.rfc_labels[fat_domain][batch_index]
+            if len(self.rfc_labels)==len(self.feat_domains):
+                targets = self.rfc_labels[feat_domain][batch_index]
             else:
-                targets = self.rfc_labels[fat_domain//2][batch_index]
+                targets = self.rfc_labels[feat_domain//2][batch_index]
             return inputs, targets, domains
         else:
             return inputs, self.targets[batch_index], domains
     
-    def reset_fat_batch(self,train_loader_iter=None):
+    def reset_feat_batch(self,train_loader_iter=None):
         self.train_loader_iter = train_loader_iter
-        self.fat_batch_indices, self.fat_batches_left = {}, {}
+        self.feat_batch_indices, self.feat_batches_left = {}, {}
         if self.train_loader_iter is not None:
-            assert len(self.fat_domains)==1
-            self.fat_batches_left[0] = len(self.train_loader_iter)
-            self.fat_batch_indices[0] = torch.arange(len(self.train_loader_iter))
+            assert len(self.feat_domains)==1
+            self.feat_batches_left[0] = len(self.train_loader_iter)
+            self.feat_batch_indices[0] = torch.arange(len(self.train_loader_iter))
         else:
-            for loc, d_idx in enumerate(self.fat_domains):
-                self.fat_batch_indices[loc] = torch.split(d_idx[torch.randperm(len(d_idx))], self.batch_size)
+            for loc, d_idx in enumerate(self.feat_domains):
+                self.feat_batch_indices[loc] = torch.split(d_idx[torch.randperm(len(d_idx))], self.batch_size)
                 # mannually drop last
-                if self.drop_last and len(self.fat_batch_indices[loc][-1])<self.batch_size:
-                    print("Drop last smaller fat batch ",len(self.batch_indices[loc][-1]))
-                    self.fat_batch_indices[loc] = self.fat_batch_indices[loc][:-1]
-                self.fat_batches_left[loc] = len(self.fat_batch_indices[loc])
+                if self.drop_last and len(self.feat_batch_indices[loc][-1])<self.batch_size:
+                    print("Drop last smaller feat batch ",len(self.batch_indices[loc][-1]))
+                    self.feat_batch_indices[loc] = self.feat_batch_indices[loc][:-1]
+                self.feat_batches_left[loc] = len(self.feat_batch_indices[loc])
 
 
-    def extend_fat_domains(self,new_fat_domains):
-        self.fat_domains += new_fat_domains
-    def replace_fat_domains(self,new_fat_domains):
-        if len(self.fat_domains) == 1:
-            self.fat_domains += new_fat_domains
+    def extend_feat_domains(self,new_feat_domains):
+        self.feat_domains += new_feat_domains
+    def replace_feat_domains(self,new_feat_domains):
+        if len(self.feat_domains) == 1:
+            self.feat_domains += new_feat_domains
         else:
-            assert len(self.fat_domains) == 3
-            self.fat_domains[1] = new_fat_domains[0]
-            self.fat_domains[2] = new_fat_domains[1]
+            assert len(self.feat_domains) == 3
+            self.feat_domains[1] = new_feat_domains[0]
+            self.feat_domains[2] = new_feat_domains[1]
     def prepare_rfc_domains(self):
         num_rfc_rounds = len(self.rfc_labels)
-        self.fat_domains = [torch.arange(self.y_array.size(0))]*num_rfc_rounds
+        self.feat_domains = [torch.arange(self.y_array.size(0))]*num_rfc_rounds
 
     def extend_rfc_labels(self,new_rfc_labels):
         # get rid of the place holder domains
-        if len(self.fat_domains)==1:
-            self.fat_domains = []
+        if len(self.feat_domains)==1:
+            self.feat_domains = []
         self.rfc_labels += new_rfc_labels
 
-    def clean_fat_domains(self):
-        self.fat_domains = None
-        self.fat_batch_indices = None
-        self.fat_batches_left = None
+    def clean_feat_domains(self):
+        self.feat_domains = None
+        self.feat_batch_indices = None
+        self.feat_batches_left = None
         self.rfc_labels = None
     def reset_batch(self):
         """Reset batch indices for each domain."""
@@ -463,69 +463,69 @@ class GeneralWilds_Batched_Dataset(Dataset):
         self.training_steps = int(min_domain_size/self.batch_size)+\
                                 (not self.drop_last*(min_domain_size//self.batch_size>0))
 
-        self.fat_domains = [torch.arange(self.y_array.size(0))] # domain 0
+        self.feat_domains = [torch.arange(self.y_array.size(0))] # domain 0
         self.rfc_labels = [] # domain 0
         self.train_loader_iter = None
 
     
-    def get_fat_batch(self,fat_domain,rfc_label=False):
-        batch_index = self.fat_batch_indices[fat_domain][len(self.fat_batch_indices[fat_domain]) - self.fat_batches_left[fat_domain]]
+    def get_feat_batch(self,feat_domain,rfc_label=False):
+        batch_index = self.feat_batch_indices[feat_domain][len(self.feat_batch_indices[feat_domain]) - self.feat_batches_left[feat_domain]]
         domains = torch.zeros(batch_index.size()).to(batch_index.device)
-        domains += fat_domain
+        domains += feat_domain
         if self.train_loader_iter is not None:
             # which means align sampling:
-            # inputs = self.batched_data[fat_domain][len(self.fat_batch_indices[fat_domain]) - self.fat_batches_left[fat_domain]]
+            # inputs = self.batched_data[feat_domain][len(self.feat_batch_indices[feat_domain]) - self.feat_batches_left[feat_domain]]
             return next(self.train_loader_iter)
         else:
             inputs = torch.stack([self.transform(self.get_input(i)) for i in batch_index])
         if rfc_label:
-            if len(self.rfc_labels)==len(self.fat_domains):
-                targets = self.rfc_labels[fat_domain][batch_index]
+            if len(self.rfc_labels)==len(self.feat_domains):
+                targets = self.rfc_labels[feat_domain][batch_index]
             else:
-                targets = self.rfc_labels[fat_domain//2][batch_index]
+                targets = self.rfc_labels[feat_domain//2][batch_index]
             return inputs, targets, domains
         else:
             return inputs, self.targets[batch_index], domains
     
-    def reset_fat_batch(self,train_loader_iter=None):
+    def reset_feat_batch(self,train_loader_iter=None):
         self.train_loader_iter = train_loader_iter
-        self.fat_batch_indices, self.fat_batches_left = {}, {}
+        self.feat_batch_indices, self.feat_batches_left = {}, {}
         if self.train_loader_iter is not None:
-            assert len(self.fat_domains)==1
-            self.fat_batches_left[0] = len(self.train_loader_iter)
-            self.fat_batch_indices[0] = torch.arange(len(self.train_loader_iter))
+            assert len(self.feat_domains)==1
+            self.feat_batches_left[0] = len(self.train_loader_iter)
+            self.feat_batch_indices[0] = torch.arange(len(self.train_loader_iter))
         else:
-            for loc, d_idx in enumerate(self.fat_domains):
-                self.fat_batch_indices[loc] = torch.split(d_idx[torch.randperm(len(d_idx))], self.batch_size)
+            for loc, d_idx in enumerate(self.feat_domains):
+                self.feat_batch_indices[loc] = torch.split(d_idx[torch.randperm(len(d_idx))], self.batch_size)
                 # mannually drop last
-                if self.drop_last and len(self.fat_batch_indices[loc][-1])<self.batch_size:
-                    print("Drop last smaller fat batch ",len(self.batch_indices[loc][-1]))
-                    self.fat_batch_indices[loc] = self.fat_batch_indices[loc][:-1]
-                self.fat_batches_left[loc] = len(self.fat_batch_indices[loc])
+                if self.drop_last and len(self.feat_batch_indices[loc][-1])<self.batch_size:
+                    print("Drop last smaller feat batch ",len(self.batch_indices[loc][-1]))
+                    self.feat_batch_indices[loc] = self.feat_batch_indices[loc][:-1]
+                self.feat_batches_left[loc] = len(self.feat_batch_indices[loc])
 
-    def extend_fat_domains(self,new_fat_domains):
-        self.fat_domains += new_fat_domains
-    def replace_fat_domains(self,new_fat_domains):
-        if len(self.fat_domains) == 1:
-            self.fat_domains += new_fat_domains
+    def extend_feat_domains(self,new_feat_domains):
+        self.feat_domains += new_feat_domains
+    def replace_feat_domains(self,new_feat_domains):
+        if len(self.feat_domains) == 1:
+            self.feat_domains += new_feat_domains
         else:
-            assert len(self.fat_domains) == 3
-            self.fat_domains[1] = new_fat_domains[0]
-            self.fat_domains[2] = new_fat_domains[1]
+            assert len(self.feat_domains) == 3
+            self.feat_domains[1] = new_feat_domains[0]
+            self.feat_domains[2] = new_feat_domains[1]
     def prepare_rfc_domains(self):
         num_rfc_rounds = len(self.rfc_labels)
-        self.fat_domains = [torch.arange(self.y_array.size(0))]*num_rfc_rounds
+        self.feat_domains = [torch.arange(self.y_array.size(0))]*num_rfc_rounds
 
     def extend_rfc_labels(self,new_rfc_labels):
         # get rid of the place holder domains
-        if len(self.fat_domains)==1:
-            self.fat_domains = []
+        if len(self.feat_domains)==1:
+            self.feat_domains = []
         self.rfc_labels += new_rfc_labels
 
-    def clean_fat_domains(self):
-        self.fat_domains = None
-        self.fat_batch_indices = None
-        self.fat_batches_left = None
+    def clean_feat_domains(self):
+        self.feat_domains = None
+        self.feat_batch_indices = None
+        self.feat_batches_left = None
         self.rfc_labels = None
 
     def reset_batch(self):

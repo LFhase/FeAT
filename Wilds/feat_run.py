@@ -17,7 +17,7 @@ from scheduler import initialize_scheduler
 
 import models
 from config import dataset_defaults
-from fat_utils import sample_fat_domains, save_best_rfc_model, save_model, set_seed, unpack_data, sample_domains, save_best_model, \
+from feat_utils import sample_feat_domains, save_best_rfc_model, save_model, set_seed, unpack_data, sample_domains, save_best_model, \
     Logger, return_predict_fn, return_criterion, fish_step
 
 # This is secret and shouldn't be checked into version control
@@ -63,14 +63,14 @@ parser.add_argument('--eps', type=float, default=1e-4)
 parser.add_argument('--num_workers','-nw',type=int,default=4)
 parser.add_argument('--frozen', action='store_true', default=False) # whether to frozen the featurizer
 parser.add_argument('-np','--need_pretrain', action='store_true')
-parser.add_argument('-ifat','--need_ifat_pretrain', action='store_true')
+parser.add_argument('-ifeat','--need_ifeat_pretrain', action='store_true')
 parser.add_argument('-pc','--use_pretrained_clf', action='store_true')
 parser.add_argument('-ri','--use_init_clf', action='store_true')
 parser.add_argument('-rp','--retain_penalty', type=float, default=0.01)
 parser.add_argument('-rfc','--need_rfc_pretrain', action='store_true')
 parser.add_argument('-rfcls','--rfc_long_syn', action='store_true')
 parser.add_argument('-rcp','--rfc_ckpt_path', type=str,default="")
-parser.add_argument('-lf','--load_fat_round', type=int,default=-1)
+parser.add_argument('-lf','--load_feat_round', type=int,default=-1)
 parser.add_argument('-pr','--pretrain_rounds',type=int,default=2)
 parser.add_argument('-pi','--pretrain_iters',type=int,default=-1)
 parser.add_argument('--use_old', action='store_true')
@@ -139,8 +139,8 @@ elif args.use_init_clf:
     args.model_name = '-ri'
 else:
     pass
-if args.need_ifat_pretrain:
-    exp_name += f"_ifat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}"
+if args.need_ifeat_pretrain:
+    exp_name += f"_ifeat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}"
 elif args.need_rfc_pretrain:
     exp_name += f"_rfc{args.model_name}_r{args.pretrain_rounds}_pi{args.pretrain_iters}"
     if args.rfc_long_syn:
@@ -222,7 +222,7 @@ if args.algorithm not in ['erm'] and not args.adjust_lr:
     n_train_steps = train_loader.dataset.training_steps*args.epochs
 else:
     n_train_steps = len(train_loader) * args.epochs 
-if (args.need_pretrain  or args.need_rfc_pretrain or args.need_ifat_pretrain)\
+if (args.need_pretrain  or args.need_rfc_pretrain or args.need_ifeat_pretrain)\
      and args.pretrain_iters>0 and not args.use_old:
     print(f"overall training steps: {n_train_steps}")
     n_train_steps += args.pretrain_iters
@@ -250,7 +250,7 @@ if args.adjust_lr:
             pbar.update(1)
         if scheduler is not None and scheduler.step_every_batch:
             scheduler.step()
-elif (args.need_pretrain or args.need_rfc_pretrain or args.need_ifat_pretrain) \
+elif (args.need_pretrain or args.need_rfc_pretrain or args.need_ifeat_pretrain) \
     and args.pretrain_iters>0 and args.use_old:
     if args.scheduler is not None and len(args.scheduler)>0:
         try:
@@ -679,8 +679,8 @@ def pretrain(train_loader, pretrain_iters, save_path=None):
                 test(val_loader, aggP, loader_type='val', verbose=False)
                 test(test_loader, aggP, loader_type='test', verbose=False)
                 if not args.no_wandb:
-                    wandb.log({"fat_val_acc":aggP['val_stat'][-1]},step=overall_step)
-                    wandb.log({"fat_test_acc":aggP['test_stat'][-1]},step=overall_step)
+                    wandb.log({"feat_val_acc":aggP['val_stat'][-1]},step=overall_step)
+                    wandb.log({"feat_test_acc":aggP['test_stat'][-1]},step=overall_step)
                 if save_path is None:
                     save_path = runPath
                 save_best_model(model, save_path, aggP, args,pretrain=new_pretrain_iters)
@@ -690,8 +690,8 @@ def pretrain(train_loader, pretrain_iters, save_path=None):
                 test(val_loader, aggP, loader_type='val', verbose=False)
                 test(test_loader, aggP, loader_type='test', verbose=False)
                 if not args.no_wandb:
-                    wandb.log({"fat_val_acc":aggP['val_stat'][-1]},step=overall_step)
-                    wandb.log({"fat_test_acc":aggP['test_stat'][-1]},step=overall_step)
+                    wandb.log({"feat_val_acc":aggP['val_stat'][-1]},step=overall_step)
+                    wandb.log({"feat_test_acc":aggP['test_stat'][-1]},step=overall_step)
                 if save_path is None:
                     save_path = runPath
                 save_best_model(model, save_path, aggP, args,pretrain=new_pretrain_iters)
@@ -722,7 +722,7 @@ def pretrain(train_loader, pretrain_iters, save_path=None):
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-def agg_fat_weights(cur_model,classifiers,hidden_dim,num_classes,round_i):
+def agg_feat_weights(cur_model,classifiers,hidden_dim,num_classes,round_i):
     with torch.no_grad():
         w = cur_model.classifier.weight.data.clone().detach()
         b = cur_model.classifier.bias.data.clone().detach()
@@ -737,21 +737,21 @@ def agg_fat_weights(cur_model,classifiers,hidden_dim,num_classes,round_i):
         cur_model.classifier.bias.data = b
     return cur_model, (cur_clf_weight,cur_clf_bias)
 
-def ifat_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
+def ifeat_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
     global model, overall_step, tv_loaders, optimizer, scheduler
     if save_path is None:
         save_path = runPath
     aggP = defaultdict(list)
     aggP['val_stat'] = [0.]
     
-    if args.load_fat_round>0:
-        print(f"Load previously trained model in round {args.load_fat_round}")
-        fat_path = f'{save_path}/model_ifat_round_{args.load_fat_round}.rar'
-        model.load_state_dict(torch.load(fat_path))
+    if args.load_feat_round>0:
+        print(f"Load previously trained model in round {args.load_feat_round}")
+        feat_path = f'{save_path}/model_ifeat_round_{args.load_feat_round}.rar'
+        model.load_state_dict(torch.load(feat_path))
     # get the loaders
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True, 'drop_last': False} \
         if device.type == "cuda" else {}
-    fat_train_loader = DataLoader(train_loader.dataset, \
+    feat_train_loader = DataLoader(train_loader.dataset, \
                                 batch_size=args.batch_size*20, shuffle=False, **kwargs)
         
 
@@ -760,10 +760,10 @@ def ifat_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
     classifiers = []
     final_classifier = None
     train_loader_iter = iter(train_loader)
-    train_loader.dataset.reset_fat_batch(train_loader_iter=train_loader_iter)
+    train_loader.dataset.reset_feat_batch(train_loader_iter=train_loader_iter)
 
     pbar = tqdm.tqdm(total = pretrain_iters)
-    last_fat_step = 0
+    last_feat_step = 0
     init_clf = (model.classifier.weight.data.clone().detach(), model.classifier.bias.data.clone().detach())
     for round_i in range(pretrain_rounds):
         hidden_dim = model.classifier.weight.size(1)
@@ -782,7 +782,7 @@ def ifat_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
         else:
             model.classifier = nn.Linear(hidden_dim,num_classes).to(device)
         best_clf = None
-        last_fat_step = len(aggP['val_stat'])-1
+        last_feat_step = len(aggP['val_stat'])-1
 
         optimizer = opt([{'params':list(model.parameters()),'initial_lr':args.optimiser_args['lr']}], \
                             **args.optimiser_args)
@@ -791,28 +791,28 @@ def ifat_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
         else:
             scheduler = None
         
-        num_fat_domains = len(train_loader.dataset.fat_domains)
+        num_feat_domains = len(train_loader.dataset.feat_domains)
         pbar.reset()
         for pre_iter in range(pretrain_iters_per_round):
-            if sum([l >= 1 for l in train_loader.dataset.fat_batches_left.values()]) < num_fat_domains:
-                if num_fat_domains==1:
+            if sum([l >= 1 for l in train_loader.dataset.feat_batches_left.values()]) < num_feat_domains:
+                if num_feat_domains==1:
                     train_loader_iter = iter(train_loader)
-                    train_loader.dataset.reset_fat_batch(train_loader_iter=train_loader_iter)
+                    train_loader.dataset.reset_feat_batch(train_loader_iter=train_loader_iter)
                 else:
-                    train_loader.dataset.reset_fat_batch()
+                    train_loader.dataset.reset_feat_batch()
                 if scheduler is not None and not scheduler.step_every_batch:
                     scheduler.step()
             
             model.train()
             overall_step += 1
             # sample `meta_steps` number of domains to use for the inner loop
-            domains = list(range(num_fat_domains))
+            domains = list(range(num_feat_domains))
             losses_aug = []
             losses_retain = []
             avg_loss = 0
             
             for (di,domain) in enumerate(domains):
-                data = train_loader.dataset.get_fat_batch(domain)
+                data = train_loader.dataset.get_feat_batch(domain)
                 x, y = unpack_data(data, device)
                 y_hat, feat = model(x,get_feat=True)
                 loss_aug = F.cross_entropy(y_hat,y,reduction="none")
@@ -837,7 +837,7 @@ def ifat_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
 
             # log the number of batches left for each domain
             for domain in domains:
-                train_loader.dataset.fat_batches_left[domain]  -= 1
+                train_loader.dataset.feat_batches_left[domain]  -= 1
             n_iters += 1
             # display progress
             progress_str = f"Round {round_i} Pretrain {pre_iter}/{pretrain_iters_per_round}"+ \
@@ -857,13 +857,13 @@ def ifat_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
                 print(progress_str)
 
             if (pre_iter + 1) % args.eval_iters == 0 and args.eval_iters != -1 and pre_iter+1<pretrain_iters_per_round:
-                model, cur_clf = agg_fat_weights(model,classifiers,hidden_dim,num_classes,round_i)
+                model, cur_clf = agg_feat_weights(model,classifiers,hidden_dim,num_classes,round_i)
                 test(val_loader, aggP, loader_type='val', verbose=False)
                 test(test_loader, aggP, loader_type='test', verbose=False)
                 if not args.no_wandb:
-                    wandb.log({"fat_val_acc":aggP['val_stat'][-1]},step=overall_step)
-                    wandb.log({"fat_test_acc":aggP['test_stat'][-1]},step=overall_step)
-                save_best_model(model, save_path, aggP, args, ifat=True)
+                    wandb.log({"feat_val_acc":aggP['val_stat'][-1]},step=overall_step)
+                    wandb.log({"feat_test_acc":aggP['test_stat'][-1]},step=overall_step)
+                save_best_model(model, save_path, aggP, args, ifeat=True)
                 if aggP['val_stat'][-1] > max(aggP['val_stat'][:-1]):
                     best_clf = cur_clf
                 model.classifier.weight.data = cur_clf[0]
@@ -872,49 +872,49 @@ def ifat_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
             if n_iters == pretrain_iters:
                 print("Pretrain is done!")
                 break
-        model, cur_clf = agg_fat_weights(model,classifiers,hidden_dim,num_classes,round_i)
+        model, cur_clf = agg_feat_weights(model,classifiers,hidden_dim,num_classes,round_i)
         test(val_loader, aggP, loader_type='val', verbose=False)
         test(test_loader, aggP, loader_type='test', verbose=False)
         if not args.no_wandb:
-            wandb.log({"fat_val_acc":aggP['val_stat'][-1]},step=overall_step)
-            wandb.log({"fat_test_acc":aggP['test_stat'][-1]},step=overall_step)
-        save_best_model(model, save_path, aggP, args, ifat=True)
+            wandb.log({"feat_val_acc":aggP['val_stat'][-1]},step=overall_step)
+            wandb.log({"feat_test_acc":aggP['test_stat'][-1]},step=overall_step)
+        save_best_model(model, save_path, aggP, args, ifeat=True)
         if aggP['val_stat'][-1] > max(aggP['val_stat'][:-1]):
             best_clf = cur_clf
         # last epoch model saving
-        save_model(model, f"{save_path}/model_ifat{args.model_name}_round_{round_i}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar")
+        save_model(model, f"{save_path}/model_ifeat{args.model_name}_round_{round_i}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar")
         
         if best_clf is None:
             print(f"No better model found in round {round_i}, Using the last trained model")
         else:
-            model.load_state_dict(torch.load(save_path + f"/model_ifat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar"))
-        best_agg = torch.load(save_path + f"/losses_ifat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar")
+            model.load_state_dict(torch.load(save_path + f"/model_ifeat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar"))
+        best_agg = torch.load(save_path + f"/losses_ifeat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar")
         print(f"Round {round_i} Ends: Val acc {best_agg['val_stat'][-1]} Test Acc {best_agg['test_stat'][-1]}")
         # best epoch model saving
-        save_model(model, f"{save_path}/model_ifat{args.model_name}_round_{round_i}_rp{args.retain_penalty}_pi{args.pretrain_iters}_best.rar")
+        save_model(model, f"{save_path}/model_ifeat{args.model_name}_round_{round_i}_rp{args.retain_penalty}_pi{args.pretrain_iters}_best.rar")
         if round_i+1<args.pretrain_rounds:
             # eval and augment new groups
             model.eval()
             correct_pred = []
             with torch.no_grad():
-                for data in tqdm.tqdm(fat_train_loader):
+                for data in tqdm.tqdm(feat_train_loader):
                     x, y = unpack_data(data, device)
                     y_hat = model(x).argmax(-1)
                     correct_pred += (y_hat==y).cpu().tolist()
             correct_pred = torch.tensor(correct_pred).bool()
-            new_fat_domains = [torch.nonzero(correct_pred,as_tuple=True)[0],\
+            new_feat_domains = [torch.nonzero(correct_pred,as_tuple=True)[0],\
                                 torch.nonzero(~correct_pred,as_tuple=True)[0]]
-            train_loader.dataset.replace_fat_domains(new_fat_domains)
-            train_loader.dataset.reset_fat_batch()
+            train_loader.dataset.replace_feat_domains(new_feat_domains)
+            train_loader.dataset.reset_feat_batch()
             model.classifier.eval()
             classifiers = [model.classifier]
-    train_loader.dataset.clean_fat_domains()
+    train_loader.dataset.clean_feat_domains()
     set_seed(args.seed)
     modelC = getattr(models, args.dataset)
     train_loader, tv_loaders, dataset = modelC.getDataLoaders(args, device=device)
     model = modelC(args, weights=None).to(device)
-    model.load_state_dict(torch.load(save_path + f"/model_ifat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar"))
-    print('Finished iFAT pre-training!')
+    model.load_state_dict(torch.load(save_path + f"/model_ifeat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar"))
+    print('Finished ifeat pre-training!')
     classifier = model.classifier
     trainable_params = classifier.parameters() if args.frozen else model.parameters()
     optimizer = opt([{'params':list(trainable_params),'initial_lr':args.optimiser_args['lr']}], **args.optimiser_args)
@@ -948,14 +948,14 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
     aggP = defaultdict(list)
     aggP['val_stat'] = [0.]
     
-    if args.load_fat_round>0:
-        print(f"Load previously trained model in round {args.load_fat_round}")
-        fat_path = f"{save_path}/model_fat{args.model_name}_round_{args.load_fat_round}.rar"
-        model.load_state_dict(torch.load(fat_path))
+    if args.load_feat_round>0:
+        print(f"Load previously trained model in round {args.load_feat_round}")
+        feat_path = f"{save_path}/model_feat{args.model_name}_round_{args.load_feat_round}.rar"
+        model.load_state_dict(torch.load(feat_path))
     # get the loaders
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True, 'drop_last': False} \
         if device.type == "cuda" else {}
-    fat_train_loader = DataLoader(train_loader.dataset, \
+    feat_train_loader = DataLoader(train_loader.dataset, \
                                 batch_size=args.batch_size*20, shuffle=False, **kwargs)
     n_iters = 0
     pretrain_iters_per_round = int(np.ceil(pretrain_iters/pretrain_rounds))
@@ -964,7 +964,7 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
     last_round_step = 0
 
     train_loader_iter = iter(train_loader)
-    train_loader.dataset.reset_fat_batch(train_loader_iter=train_loader_iter)
+    train_loader.dataset.reset_feat_batch(train_loader_iter=train_loader_iter)
 
     pbar = tqdm.tqdm(total = pretrain_iters)
     for round_i in range(pretrain_rounds):
@@ -982,27 +982,27 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
             scheduler = None
         
         pbar.reset()
-        num_fat_domains = len(train_loader.dataset.fat_domains)
+        num_feat_domains = len(train_loader.dataset.feat_domains)
         for pre_iter in range(pretrain_iters_per_round):
-            if sum([l >= 1 for l in train_loader.dataset.fat_batches_left.values()]) < num_fat_domains:
-                if num_fat_domains==1:
+            if sum([l >= 1 for l in train_loader.dataset.feat_batches_left.values()]) < num_feat_domains:
+                if num_feat_domains==1:
                     train_loader_iter = iter(train_loader)
-                    train_loader.dataset.reset_fat_batch(train_loader_iter=train_loader_iter)
+                    train_loader.dataset.reset_feat_batch(train_loader_iter=train_loader_iter)
                 else:
-                    train_loader.dataset.reset_fat_batch()
-                print(train_loader.dataset.fat_batch_indices[0][0])
+                    train_loader.dataset.reset_feat_batch()
+                print(train_loader.dataset.feat_batch_indices[0][0])
                 
                 if scheduler is not None and not scheduler.step_every_batch:
                     scheduler.step()
             model.train()
             overall_step += 1
 
-            domains = list(range(num_fat_domains)) 
+            domains = list(range(num_feat_domains)) 
             losses_aug = []
             losses_retain = []
             avg_loss = 0
             for (di,domain) in enumerate(domains):
-                data = train_loader.dataset.get_fat_batch(domain)
+                data = train_loader.dataset.get_feat_batch(domain)
                 x, y = unpack_data(data, device)
                 y_hat, feat = model(x,get_feat=True)
                 loss_aug = F.cross_entropy(y_hat,y,reduction="none")
@@ -1023,7 +1023,7 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
 
             # log the number of batches left for each domain
             for domain in domains:
-                train_loader.dataset.fat_batches_left[domain] -= 1
+                train_loader.dataset.feat_batches_left[domain] -= 1
             n_iters += 1
             # display progress
             progress_str = f"Round {round_i} Pretrain {pre_iter}/{pretrain_iters_per_round}"+ \
@@ -1040,8 +1040,8 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
                 test(val_loader, aggP, loader_type='val', verbose=False)
                 test(test_loader, aggP, loader_type='test', verbose=False)
                 if not args.no_wandb:
-                    wandb.log({"fat_val_acc":aggP['val_stat'][-1]},step=overall_step)
-                    wandb.log({"fat_test_acc":aggP['test_stat'][-1]},step=overall_step)
+                    wandb.log({"feat_val_acc":aggP['val_stat'][-1]},step=overall_step)
+                    wandb.log({"feat_test_acc":aggP['test_stat'][-1]},step=overall_step)
                 save_best_rfc_model(model, save_path, aggP, args,rfc=True,rfc_step=last_round_step,rfc_round=round_i)
                 model.train()
             if n_iters == pretrain_iters:
@@ -1051,8 +1051,8 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
         test(val_loader, aggP, loader_type='val', verbose=False)
         test(test_loader, aggP, loader_type='test', verbose=False)
         if not args.no_wandb:
-            wandb.log({"fat_val_acc":aggP['val_stat'][-1]},step=overall_step)
-            wandb.log({"fat_test_acc":aggP['test_stat'][-1]},step=overall_step)
+            wandb.log({"feat_val_acc":aggP['val_stat'][-1]},step=overall_step)
+            wandb.log({"feat_test_acc":aggP['test_stat'][-1]},step=overall_step)
         save_best_rfc_model(model, save_path, aggP, args,rfc=True,rfc_step=last_round_step,rfc_round=round_i)
         model.load_state_dict(torch.load(save_path+f"/model_rfc{args.model_name}_r{round_i}_pi{args.pretrain_iters}{'_ls' if args.rfc_long_syn else ''}.rar"))
         
@@ -1065,7 +1065,7 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
             correct_pred = []
             preds = []
             with torch.no_grad():
-                for data in tqdm.tqdm(fat_train_loader):
+                for data in tqdm.tqdm(feat_train_loader):
                     x, y = unpack_data(data, device)
                     y_hat = model(x).argmax(-1)
                     correct_pred += (y_hat==y).cpu().tolist()
@@ -1074,17 +1074,17 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
             preds = [torch.LongTensor(preds)]
             train_loader.dataset.extend_rfc_labels(preds)
             correct_pred = torch.tensor(correct_pred).bool()
-            new_fat_domains = [torch.nonzero(correct_pred,as_tuple=True)[0],\
+            new_feat_domains = [torch.nonzero(correct_pred,as_tuple=True)[0],\
                                 torch.nonzero(~correct_pred,as_tuple=True)[0]]
-            train_loader.dataset.extend_fat_domains(new_fat_domains)
-            train_loader.dataset.reset_fat_batch()
+            train_loader.dataset.extend_feat_domains(new_feat_domains)
+            train_loader.dataset.reset_feat_batch()
             model.classifier.eval()
             classifiers.append(model.classifier)
     pretrain_iters_per_round = pretrain_iters
     if args.rfc_long_syn:
         pretrain_iters_per_round = pretrain_iters*2
     train_loader.dataset.prepare_rfc_domains()
-    train_loader.dataset.reset_fat_batch()
+    train_loader.dataset.reset_feat_batch()
     torch.cuda.empty_cache()
     for syn_round in range(1):
         # re-initialize a model at each RFC round
@@ -1105,20 +1105,20 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
             scheduler = None
         
         pbar.reset()
-        num_fat_domains = len(train_loader.dataset.fat_domains)
+        num_feat_domains = len(train_loader.dataset.feat_domains)
         for pre_iter in range(pretrain_iters_per_round):
-            if sum([l >= 1 for l in train_loader.dataset.fat_batches_left.values()]) < pretrain_rounds:
-                train_loader.dataset.reset_fat_batch()
+            if sum([l >= 1 for l in train_loader.dataset.feat_batches_left.values()]) < pretrain_rounds:
+                train_loader.dataset.reset_feat_batch()
                 if scheduler is not None and not scheduler.step_every_batch:
                     scheduler.step()
             model.train()
             overall_step += 1
-            domains = list(range(num_fat_domains))
+            domains = list(range(num_feat_domains))
             losses_aug = []
             losses_retain = []
             avg_loss = 0
             for (di,domain) in enumerate(domains):
-                data = train_loader.dataset.get_fat_batch(domain,rfc_label=True)
+                data = train_loader.dataset.get_feat_batch(domain,rfc_label=True)
                 x, y = unpack_data(data, device)
                 y_hat, feat = model(x,get_feat=True)
 
@@ -1141,7 +1141,7 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
 
             # log the number of batches left for each domain
             for domain in domains:
-                train_loader.dataset.fat_batches_left[domain] -= 1
+                train_loader.dataset.feat_batches_left[domain] -= 1
             n_iters += 1
             # display progress
             progress_str = f"SynRound Pretrain {pre_iter}/{pretrain_iters_per_round}"+ \
@@ -1159,8 +1159,8 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
                 test(val_loader, aggP, loader_type='val', verbose=False)
                 test(test_loader, aggP, loader_type='test', verbose=False)
                 if not args.no_wandb:
-                    wandb.log({"fat_val_acc":aggP['val_stat'][-1]},step=overall_step)
-                    wandb.log({"fat_test_acc":aggP['test_stat'][-1]},step=overall_step)
+                    wandb.log({"feat_val_acc":aggP['val_stat'][-1]},step=overall_step)
+                    wandb.log({"feat_test_acc":aggP['test_stat'][-1]},step=overall_step)
                 save_best_rfc_model(model, save_path, aggP, args,rfc=True,rfc_step=last_round_step,rfc_round=pretrain_rounds+1)
                 model.train()
             if n_iters == pretrain_iters:
@@ -1170,8 +1170,8 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
     test(val_loader, aggP, loader_type='val', verbose=False)
     test(test_loader, aggP, loader_type='test', verbose=False)
     if not args.no_wandb:
-        wandb.log({"fat_val_acc":aggP['val_stat'][-1]},step=overall_step)
-        wandb.log({"fat_test_acc":aggP['test_stat'][-1]},step=overall_step)
+        wandb.log({"feat_val_acc":aggP['val_stat'][-1]},step=overall_step)
+        wandb.log({"feat_test_acc":aggP['test_stat'][-1]},step=overall_step)
     save_best_rfc_model(model, save_path, aggP, args,rfc=True,rfc_step=last_round_step,rfc_round=pretrain_rounds+1)
     best_iter = np.argmax(aggP['val_stat'][last_round_step:])+last_round_step
     print(f"Round {round_i} Ends: Val acc {aggP['val_stat'][best_iter]} Test Acc {aggP['test_stat'][best_iter-1]}")
@@ -1180,7 +1180,7 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
     train_loader, tv_loaders, dataset = modelC.getDataLoaders(args, device=device)
     model = modelC(args, weights=None).to(device)
     model.load_state_dict(torch.load(save_path + f"/model_rfc{args.model_name}_r{args.pretrain_rounds+1}_pi{args.pretrain_iters}{'_ls' if args.rfc_long_syn else ''}.rar"))
-    print('Finished FAT pre-training!')
+    print('Finished feat pre-training!')
     classifier = model.classifier
     trainable_params = classifier.parameters() if args.frozen else model.parameters()
     optimizer = opt([{'params':list(trainable_params),'initial_lr':args.optimiser_args['lr']}], **args.optimiser_args)
@@ -1190,7 +1190,7 @@ def rfc_train(train_loader, pretrain_iters, pretrain_rounds=2, save_path=None):
         scheduler = None
     overall_step = 0
     pbar.close()
-    train_loader.dataset.clean_fat_domains()
+    train_loader.dataset.clean_feat_domains()
 
 if __name__ == '__main__':
     try:
@@ -1204,21 +1204,21 @@ if __name__ == '__main__':
             else:
                 print("="*30 + "ERM pretraining" + "="*30)
                 pretrain(train_loader, args.pretrain_iters, save_path=pretrain_path)
-        elif args.need_ifat_pretrain and args.pretrain_rounds != 0:
+        elif args.need_ifeat_pretrain and args.pretrain_rounds != 0:
             pretrain_path = os.path.join(args.exp_dir,"experiments",args.dataset,str(args.seed))
             if not os.path.exists(pretrain_path):
                 os.makedirs(pretrain_path)
-            if args.use_old and args.load_fat_round>0:
-                pretrain_path = pretrain_path+ f"/model_ifat{args.model_name}_round_{args.load_fat_round}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar"
+            if args.use_old and args.load_feat_round>0:
+                pretrain_path = pretrain_path+ f"/model_ifeat{args.model_name}_round_{args.load_feat_round}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar"
                 model.load_state_dict(torch.load(pretrain_path))
-                print(f"Load fat pretrained model from {pretrain_path}")
+                print(f"Load feat pretrained model from {pretrain_path}")
             elif args.use_old:
-                pretrain_path = pretrain_path+ f"/model_ifat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar"
+                pretrain_path = pretrain_path+ f"/model_ifeat{args.model_name}_rp{args.retain_penalty}_pi{args.pretrain_iters}.rar"
                 model.load_state_dict(torch.load(pretrain_path ))
-                print(f"Load fat pretrained model from {pretrain_path}")
+                print(f"Load feat pretrained model from {pretrain_path}")
             else:
-                print("="*30 + "iFAT pretraining" + "="*30)
-                ifat_train(train_loader, args.pretrain_iters, args.pretrain_rounds, save_path=pretrain_path)
+                print("="*30 + "ifeat pretraining" + "="*30)
+                ifeat_train(train_loader, args.pretrain_iters, args.pretrain_rounds, save_path=pretrain_path)
         elif args.need_rfc_pretrain:
             if args.use_old:
                 if len(args.rfc_ckpt_path)>0:
@@ -1243,7 +1243,7 @@ if __name__ == '__main__':
                     pretrain_path = os.path.join(args.exp_dir,"experiments",args.dataset,str(args.seed))
                     pretrain_path = pretrain_path + f"/model_rfc{args.model_name}_r{args.pretrain_rounds+1}_pi{args.pretrain_iters}{'_ls' if args.rfc_long_syn else ''}.rar"
                     model.load_state_dict(torch.load(pretrain_path))
-                    print(f"Load fat pretrained model from {pretrain_path}")
+                    print(f"Load feat pretrained model from {pretrain_path}")
             else:
                 pretrain_path = os.path.join(args.exp_dir,"experiments",args.dataset,str(args.seed))
                 print("="*30 + "RFC pretraining" + "="*30)
