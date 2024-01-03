@@ -14,6 +14,7 @@ This repo contains the sample code for reproducing the results of our NeurIPS 20
 
 Updates:
 
+- [x] If you feel hard to tune even the last layer, why not try with our optimizer [PAIR](https://github.com/LFhase/PAIR) for OOD objectives! 😆😆😆
 - [x] Camera-ready version of the paper is updated [link](https://arxiv.org/abs/2304.11327)!
 - [x] Detailed running instructions, slides and the recording have been released!
 
@@ -161,6 +162,10 @@ python feat_dfr_run.py --data_dir=${data_path} \
 - `--predict_spurious`: indicates to evaluate the spurious feature learning;
 
 The running scripts fow DFR evaluation experiments can be found [here](./WILDS/scripts/feat_dfr.sh).
+
+
+## Tips
+- If you feel hard to tune even the last layer, why not try with our optimizer [PAIR](https://github.com/LFhase/PAIR) for OOD objectives! 😆😆😆
 
 ## Misc
 
