@@ -1,7 +1,7 @@
 **/data/
 *.jsonl
 *.pyc
-*.sh
+# *.sh
 *.log
 **/.idea/*
 *.pt
